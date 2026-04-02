@@ -1,0 +1,20 @@
+# rule to detect when a user group has been modified
+
+title: Modified groups - windows
+id: <id>
+status: test
+description: this rule will trigger when a user account is locked out
+date: 2026-04-02
+tags:
+    - t.1484.001
+logsource:
+    product: windows 
+    service: system
+
+detection:
+  selection:
+    EventID:
+      - 4728 # or 
+      - 4729 # or
+      - 4703 
+  condition: selection
