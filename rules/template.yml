@@ -1,0 +1,19 @@
+title:
+id: <id - use uuidgen or [guid]::NewGuid()>
+status:
+description:
+references:
+  - # cve link
+author:
+tags:
+  - attack.t_id             # technique
+  - attack.tactic_name      # tactic
+date: yyyy-mm-dd
+logsource:
+  product:
+  category:
+detection:
+  selection:
+
+  condition: selection
+level: 

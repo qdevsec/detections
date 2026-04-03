@@ -8,6 +8,16 @@ Alert -->
 SOC Response -->
 Feedback --> Improve rule/pipeline
 
+
+Building detection coverage across the kill chain
+
+Initial Access -> C2 -> execution -> Payload Delivery
+
+Ensure
+- multiple detections per technique
+- multiple techniques per tactic
+- correlation across stages
+
 ## 1. Log ingestion
 Logs are generated and sent to a SIEM in an unformatted way
 
@@ -94,8 +104,15 @@ Logs are generated and sent to a SIEM in an unformatted way
 
 # 2. Normalization & Enrichment
 
+raw logs -> normalize -> sigma -> convert -> SIEM query -> detection
+
 ## Normalization
 make sure all ingested data follows a consistent schema so "apples" to "apples" can be compared.
+
+Normalization standard
+- Elastic Common Schema (ECS) - Elastic
+- Splunk Common Information Model (CIM) - Splunk
+- Azure Sentinel Information Model (ASIM) - Sentinel
 
 - <u>Parsing and Field Extraction:</u> SIEM uses regex or predefined parsing to identify and extract key data points from the raw log message
     - source IP
@@ -114,6 +131,43 @@ make sure all ingested data follows a consistent schema so "apples" to "apples" 
 
 - <u>Event Classification:</u> Similar activites from different vendors are assigned a standard category
     - for example `failed login` (windows), `denied access` (linux) --> `authentication_failure`  
+
+#### Normalizing example
+> A. normalize at ingestion (best practice), transform logs as they come in
+> B. Normalize at query time, slower, messier use field aliases in queries
+```
+raw_log.process = "cmd.exe"
+
+→ transform →
+
+process.name = "cmd.exe"
+```
+
+##### Tools
+- Splunk: props.conf + transforms.conf
+- Sentinel: KQL parsers / ASIM functions
+- Elastic: Ingest pipelines
+
+
+> With sigma can field map during conversion with sigmac or unicoder.io
+
+```
+fieldmappings:
+  Image: process.name
+  ParentImage: process.parent.name
+```
+
+##### Build a "Detection Data Model"
+
+internal schema
+```
+process_name
+parent_process
+cmdline
+src_ip
+dst_ip
+dns_query
+```
 
 ## Enrichment
 This steps adds additional context to the data has now been normalized so the `who`, `what` and `where` can be seen
