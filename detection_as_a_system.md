@@ -81,7 +81,7 @@ Logs are generated and sent to a SIEM in an unformatted way
         - Databases Servers
         - Authentication Logs
     - <u>Applications & Databases:</u>
-        - SaaS platforms (Microsoft 365, Slack, Saleforces)
+        - SaaS platforms (Microsoft 365, Slack, Saleforce)
         - Database audit logs (SQL, NoSQL)
         - Web servers (Apache, IIS)
     - <u>Infrastructure Services:</u>
@@ -102,12 +102,196 @@ Logs are generated and sent to a SIEM in an unformatted way
         - DNS logs 
         - Email gateways
 
+#### Ways logs can be sent
+
+> Agents are push-base, reliable collectors installed close to the data source
+
+> Method--------------------|--------Best for
+>------------------------------------------------------------
+
+> Agents(Forwarders/Beat)  --|--  Servers, endpoints, reliability
+
+> Syslog  --|-- Network devices, Linux
+
+> APIs --|-- Cloud & SaaS
+
+> HTTP (HEC) --|-- Custom apps, microservices
+
+> Kafka / streaming --|-- High-scale pipelines
+
+```
+[Endpoints] --UF--> [Heavy Forwarder] --> [Indexers] --> [Search head]
+[Network Devices] --Syslog--> [Syslog Server] --HF--> [Search head]
+```
+
+##### Syslog 
+
+- Syslog server
+    - Receives log messages from multiple devices
+    - Stores or forwards them
+    - Sometimes parses or filters them before sending to a SIEM like Splunk Enterprise or Elastic Stack
+    - It uses the Syslog protocol which is a standard for message logging across systems
+    - Device -> Syslog Server -> SIEM
+
+    - Syslog server acts as a collector + relay layer
+
+###### Simple flow
+1. Device generates a log:
+
+```
+Failed login from 192.168.1.10
+```
+2. Sends that message over the network using Syslog:
+    - UDP (fast, but unreliable)
+    - TCP (reliable)
+    - TLS (secure syslog)
+
+3. The syslog server:
+    - Receives the message 
+    - Optionally writes it to disk
+    - Forwards it to your SIEM
+
+###### Common Syslog sources
+
+- These usually dont support agents, so syslog is the default:
+    - Firewalls (Palo Alto, Cisco ASA)
+    - Routers & switches
+    - Linux / Unix systems
+    - IDS / IPS tools
+    - Load balancers
+- That's why syslog is still essential
+
+###### Popular syslog server
+
+- Some widely used ones:
+    - rsyslog (very common on linux)
+    - syslog-ng
+    - Graylog (more full-featured)
+
+###### Benefits of Syslog server
+
+A siem, for example Splunk can act as a syslog receiver, organizations often use a dedicated syslog server
+
+1. Centralization
+- devices send logs to one place
+
+2. Decoupling
+- Devices don't need to know about your SIEM
+
+Change SIEM -> no need to reconfigure 500+ devices
+
+3. Buffering & reliability
+- Prevents data loss if SIEM is down
+- Can queue logs
+
+4. Filtering & routing
+Can:
+    
+- Drop noisy logs
+- Route logs to different destinations
+
+5. Security zone bridging
+```
+DMZ devices -> Syslog server in DMZ -> Internal SIEM
+```
+###### Disadvantages of Syslog server
+- UDP can lose logs
+- No built-in structure (security?) (mostly plain text)
+- Limited metadata compared to modern formats (JSON)
+- Weak authentication unless using TLS
+
+
+#### Methods
+- 1. Agent-Based Collection (robust, controlled)
+    - Splunk: Universal forwarder / Heavy forwarder
+    - Elastic: Beats (filebeat, winlogbeat) or elastic agent
+
+    - Benefits of agents:
+        - Reliable delivery (buffering, retry)
+        - Secure transport (TLS)
+        - Local filtering / processing
+        - Works well for endpoints (servers, VMs)
+
+- 2. Agentless Collection
+    - a) Syslog (huge in networking)
+        - Devices (routers, firewalls, switches) send logs directly
+        - Uses UDP / TCP (port 514)
+        - Examples:
+            - Firewalls
+            - Linux systems
+            - Network appliances
+        - No agent, just configure the device to point to Splunk or a syslog
+
+    - b) API-Based Ingestion
+        - Pull or receive logs via APIs
+        - Examples:
+            - Cloud platforms (AWS, Cloudtrail, Azure Monitor)
+            - SaaS apps (Okta, Google Workspace)
+        - In Splunk:
+            - Uses add-ons or HTTP Event Collector (HEC)
+                - **Dominant method for cloud / SaaS logs
+        
+    - c) File / Network Shares
+        - SIEM reads logs from:
+            - Shared drives (SMB / NFS)
+            - Mounted directories
+        - Less common, may be in legacy setups
+
+    - d) Database Connectors
+        - pull logs from databases
+        - Example: Application logs stored in SQL tables
+
+    - e) HTTP / Webhook Ingestion
+        - Send logs over HTTP(S)
+        - In Splunk:
+            - HTTP Event Collector (HEC)
+            - Very flexible - modern apps often push JSON logs this way
+
+    - f) Streaming Pipelines
+        - Tools like Kafka act as intermediaries
+        - Flow: App -> Kafka -> Splunk / Elastic
+        - **Useful for high-scale, distributed architectures
+
 # 2. Normalization & Enrichment
 
 raw logs -> normalize -> sigma -> convert -> SIEM query -> detection
 
 ## Normalization
 make sure all ingested data follows a consistent schema so "apples" to "apples" can be compared.
+
+With most SIEMs normalization happens at INGEST Time not search time like SPlunk
+- this is referred to as <u>Schema-on-write</u> vs <u>Schema-on-read</u>
+
+Splunk: Store first --> Normalize later
+- raw data stored
+- structure applied at search time
+- flexible, but heavier queries
+
+Other Siems: Normalize first --> then store
+- data is structured before indexing
+- faster queries
+- less flexible if parsing is wrong
+
+
+Field Extraction (parsing)
+- Turning raw logs into fields:
+- Technical parsing Happens on Heavy Forwarder or Indexer
+- Extracts fields from raw log
+
+```
+"src=10.0.0.1 dst=8.8.8.8"
+-> src=10.0.0.1, dst=8.8.8.8 
+```
+Happens at:
+- Index-time (indexers or HFs)
+- Search-time (very common)
+
+CIM Normalization (occurs at search time on the Search Head )
+
+- Splunk Common Information Model (CIM)
+- Maps data into a standard schema
+- Maps fields into a standard model
+    - src_ip, source_address, client_ip --> src
 
 Normalization standard
 - Elastic Common Schema (ECS) - Elastic
@@ -129,7 +313,7 @@ Normalization standard
 
 - <u>Timestamp Harmonization:</u> SIEMs convert varied time formats (Unix epoch, ISO 8601) to single synchronized UTC format so there is accurate event sequencing during correlation
 
-- <u>Event Classification:</u> Similar activites from different vendors are assigned a standard category
+- <u>Event Classification:</u> Similar activities from different vendors are assigned a standard category
     - for example `failed login` (windows), `denied access` (linux) --> `authentication_failure`  
 
 #### Normalizing example
