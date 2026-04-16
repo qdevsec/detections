@@ -12,8 +12,13 @@ date: yyyy-mm-dd
 logsource:
   product:
   category:
+
 detection:
   selection:
 
   condition: selection
+
+falsepostives:
+  - #
+
 level: 
