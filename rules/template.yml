@@ -9,6 +9,7 @@ tags:
   - attack.t_id             # technique
   - attack.tactic_name      # tactic
 date: yyyy-mm-dd
+
 logsource:
   product:
   category:
